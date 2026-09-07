@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RWA Ledger</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="mast">
+    <div class="mast-id">
+      <p class="eyebrow">Real-world asset book</p>
+      <h1>RWA Ledger</h1>
+    </div>
+    <div class="mast-actions">
+      <span class="stamp">Indicative</span>
+      <button id="refresh" type="button">Refresh marks</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="status" class="status" role="status">Pulling ECB, Treasury, and CoinGecko marks.</p>
+    <section id="kpis" class="kpis" hidden></section>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr">Portfolio positions marked in US dollars</caption>
+        <thead>
+          <tr>
+            <th scope="col">Asset</th>
+            <th scope="col">Class</th>
+            <th scope="col">Basis</th>
+            <th scope="col">Move</th>
+            <th scope="col" class="num">NAV</th>
+          </tr>
+        </thead>
+        <tbody id="positions"></tbody>
+      </table>
+    </div>
+    <section id="markets" class="markets" hidden></section>
+    <p id="disclaimer" class="disclaimer"></p>
+    <section class="task" aria-labelledby="task-title">
+      <p class="eyebrow">Candidate task</p>
+      <h2 id="task-title">Stale marks</h2>
+      <p>30–45 minutes. Complete the one track you were assigned. Leave the existing marks, feeds, and page structure in place. At the top of your submission, note what you changed.</p>
+      <h3>Shared rule</h3>
+      <p>A position is stale when its mark date is more than 3 calendar days before today, UTC. Compare dates, not clock times. A mark dated 2026-10-05 is stale on 2026-10-09. A mark dated 2026-10-06 is still fresh on 2026-10-09. A missing mark date is stale.</p>
+      <table>
+        <caption>Where to read the mark date</caption>
+        <thead>
+          <tr>
+            <th scope="col">Pricing method</th>
+            <th scope="col">Mark date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>token_spot</code></td>
+            <td><code>inputs.lastUpdatedAt</code></td>
+          </tr>
+          <tr>
+            <td><code>auction_price</code></td>
+            <td><code>inputs.auctionDate</code></td>
+          </tr>
+          <tr>
+            <td><code>appraisal_fx</code></td>
+            <td><code>inputs.fxDate</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Tradable NAV is the sum of <code>navUsd</code> for positions that are not stale. The portfolio total still includes every position.</p>
+      <div class="tracks">
+        <article>
+          <h3>Frontend</h3>
+          <p>Edit <code>public/</code> only. The page already loads <code>GET /api/valuation</code>. The API does not return a stale field.</p>
+          <ul>
+            <li>Each stale row shows a text label, Stale. Fresh rows do not.</li>
+            <li>The summary shows Tradable NAV beside the portfolio NAV.</li>
+            <li>Both stay correct after Refresh marks.</li>
+            <li>Refresh marks stays reachable from the keyboard.</li>
+          </ul>
+          <p>Done when a refresh shows which rows are excluded from Tradable NAV.</p>
+        </article>
+        <article>
+          <h3>Backend</h3>
+          <p>Edit the valuation response and its tests. Do not change <code>public/</code>.</p>
+          <ul>
+            <li><code>positions[].stale</code>, boolean, using the shared rule.</li>
+            <li><code>positions[].markDate</code>, <code>YYYY-MM-DD</code>.</li>
+            <li><code>tradableNavUsd</code>, the sum of fresh <code>navUsd</code>.</li>
+          </ul>
+          <p>Keep <code>totalNavUsd</code> as the sum of every position. Add a unit test that does not call the network. Cover a fresh mark, a mark 3 days old, a mark 4 days old, and a missing mark date.</p>
+          <p>Done when <code>npm test</code> passes and <code>GET /api/valuation</code> shows both totals.</p>
+        </article>
+        <article>
+          <h3>Solidity</h3>
+          <p>Add only <code>contracts/NavBook.sol</code> and <code>test/NavBook.t.sol</code>. Use Solidity 0.8. <code>NavBook</code> stores one USD mark per asset id.</p>
+          <ul>
+            <li><code>postMark(bytes32 assetId, uint256 navUsd, uint32 markDate)</code> is owner-only. <code>navUsd</code> uses 2 decimal places, so <code>1_000_00</code> means $1,000.00. <code>markDate</code> is <code>YYYYMMDD</code>.</li>
+            <li><code>postMark</code> reverts for a zero NAV, an impossible date, or a caller who is not the owner.</li>
+            <li><code>isStale(bytes32 assetId, uint32 today)</code> is true when the mark is missing or more than 3 calendar days before <code>today</code>.</li>
+            <li><code>tradableNav(bytes32[] assetIds, uint32 today)</code> sums fresh marks. An empty list returns 0. A stale or unknown id contributes 0.</li>
+          </ul>
+          <p>Tests: the owner posts a mark; another address cannot post; zero NAV reverts; a mark dated today is fresh; 3 days old is fresh; 4 days old is stale; tradable NAV skips the stale id. Run <code>forge test</code> if Foundry is installed. Otherwise the test file must still name each case and the expected revert or return value.</p>
+        </article>
+        <article>
+          <h3>Rust</h3>
+          <p>Add a library crate at <code>rust/nav_book</code>. No chain and no HTTP server. <code>nav_usd_cents</code> uses 2 decimal places. <code>mark_date</code> and <code>today</code> are <code>YYYYMMDD</code> integers.</p>
+          <ul>
+            <li><code>post_mark</code> stores the mark and rejects a zero NAV or an impossible date.</li>
+            <li><code>is_stale</code> is true when the mark is missing or more than 3 calendar days before <code>today</code>.</li>
+            <li><code>tradable_nav</code> sums fresh marks. An unknown or stale id contributes 0.</li>
+          </ul>
+          <p><code>cargo test</code> must cover a stored mark, a rejected zero NAV, a rejected impossible date, fresh at 0 and 3 days, stale at 4 days, and a tradable sum that skips the stale id.</p>
+        </article>
+      </div>
+      <h3>Review</h3>
+      <ul>
+        <li>3 days is fresh, 4 days is stale, and a missing date is stale.</li>
+        <li>Portfolio NAV includes every row. Tradable NAV does not include stale rows.</li>
+        <li>The track can be checked with its own test, or with a visible refresh.</li>
+      </ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

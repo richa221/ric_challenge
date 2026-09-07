@@ -1,0 +1,133 @@
+[
+  {
+    "id": "london-gold",
+    "name": "Allocated Gold, London",
+    "class": "commodity",
+    "issuer": "Paxos",
+    "jurisdiction": "GB",
+    "currency": "USD",
+    "location": "London",
+    "token": {
+      "symbol": "PAXG",
+      "coingeckoId": "pax-gold",
+      "network": "ethereum"
+    },
+    "pricing": {
+      "method": "token_spot",
+      "quantity": 250,
+      "unit": "troy oz"
+    }
+  },
+  {
+    "id": "zurich-gold",
+    "name": "Allocated Gold, Zurich",
+    "class": "commodity",
+    "issuer": "TG Commodities",
+    "jurisdiction": "CH",
+    "currency": "USD",
+    "location": "Zurich",
+    "token": {
+      "symbol": "XAUT",
+      "coingeckoId": "tether-gold",
+      "network": "ethereum"
+    },
+    "pricing": {
+      "method": "token_spot",
+      "quantity": 40,
+      "unit": "troy oz"
+    }
+  },
+  {
+    "id": "tbill-13w",
+    "name": "13-Week Treasury Bill Ladder",
+    "class": "treasury",
+    "issuer": "U.S. Treasury",
+    "jurisdiction": "US",
+    "currency": "USD",
+    "token": {
+      "symbol": "TBILL",
+      "network": "book-entry"
+    },
+    "pricing": {
+      "method": "auction_price",
+      "securityType": "Bill",
+      "securityTerm": "13-Week",
+      "faceUsd": 2500000,
+      "dayCount": 91
+    }
+  },
+  {
+    "id": "tnote-2y",
+    "name": "2-Year Treasury Notes",
+    "class": "treasury",
+    "issuer": "U.S. Treasury",
+    "jurisdiction": "US",
+    "currency": "USD",
+    "token": {
+      "symbol": "TNOTE",
+      "network": "book-entry"
+    },
+    "pricing": {
+      "method": "auction_price",
+      "securityType": "Note",
+      "securityTerm": "2-Year",
+      "faceUsd": 1500000
+    }
+  },
+  {
+    "id": "gangnam-office",
+    "name": "Gangnam Office SPV",
+    "class": "real_estate",
+    "issuer": "Gangnam Office SPV",
+    "jurisdiction": "KR",
+    "currency": "KRW",
+    "location": "Gangnam, Seoul",
+    "token": {
+      "symbol": "GNM1",
+      "network": "permissioned"
+    },
+    "pricing": {
+      "method": "appraisal_fx",
+      "appraisal": 6400000000,
+      "fxSymbol": "KRW",
+      "propertyType": "office"
+    }
+  },
+  {
+    "id": "rivoli-atelier",
+    "name": "Rue de Rivoli Atelier",
+    "class": "real_estate",
+    "issuer": "Rivoli Atelier SCI",
+    "jurisdiction": "FR",
+    "currency": "EUR",
+    "location": "Paris",
+    "token": {
+      "symbol": "RIV1",
+      "network": "permissioned"
+    },
+    "pricing": {
+      "method": "appraisal_fx",
+      "appraisal": 2750000,
+      "fxSymbol": "EUR",
+      "propertyType": "mixed-use"
+    }
+  },
+  {
+    "id": "usdy-fund",
+    "name": "Short-Duration Treasury Fund",
+    "class": "tokenized_fund",
+    "issuer": "Ondo",
+    "jurisdiction": "US",
+    "currency": "USD",
+    "token": {
+      "symbol": "USDY",
+      "coingeckoId": "ondo-us-dollar-yield",
+      "network": "ethereum"
+    },
+    "pricing": {
+      "method": "token_spot",
+      "quantity": 750000,
+      "unit": "token"
+    }
+  }
+]

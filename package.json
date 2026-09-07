@@ -1,0 +1,16 @@
+{
+  "name": "rwa-ledger",
+  "version": "1.0.0",
+  "description": "Indicative NAV for a tokenized real-world asset book, marked from public FX, Treasury, and token feeds.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "express": "^4.21.2"
+  }
+}
