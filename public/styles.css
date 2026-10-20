@@ -344,6 +344,31 @@ button:focus-visible {
   border: 0;
 }
 
+.stale-row {
+  background: rgba(141, 47, 42, 0.03);
+}
+
+.stale-pill {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 47, 42, 0.35);
+  background: rgba(141, 47, 42, 0.08);
+  color: var(--stamp);
+  font-family: "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.table-wrap tbody tr.stale-row td,
+.table-wrap tbody tr.stale-row th {
+  border-bottom-color: rgba(141, 47, 42, 0.22);
+}
+
 @media (max-width: 860px) {
   h1 { font-size: 34px; }
   .mast, .kpis, .markets { display: grid; }
