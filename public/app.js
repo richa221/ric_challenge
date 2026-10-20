@@ -15,6 +15,9 @@ const fxFormat = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,
 });
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+let refreshInFlight = false;
 
 function el(tag, className, children = []) {
   const node = document.createElement(tag);
@@ -27,6 +30,86 @@ function el(tag, className, children = []) {
 
 function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
+}
+
+function toFiniteNumber(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function toUtcDate(value) {
+  if (value === null || value === undefined || value === '') return null;
+
+  const rawValue = String(value).trim();
+  if (!rawValue) return null;
+
+  const isoMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [year, month, day] = isoMatch.slice(1).map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+      parsed.getUTCFullYear() === year
+      && parsed.getUTCMonth() === month - 1
+      && parsed.getUTCDate() === day
+    ) {
+      return parsed;
+    }
+    return null;
+  }
+
+  const timestamp = Date.parse(rawValue);
+  if (Number.isNaN(timestamp)) return null;
+
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+}
+
+function getMarkDate(position) {
+  if (!position || typeof position !== 'object') return null;
+
+  if (typeof position.markDate === 'string' || position.markDate instanceof Date) {
+    return position.markDate;
+  }
+
+  const inputs = position.inputs || {};
+  const method = position.method || position.pricingMethod;
+
+  if (method === 'token_spot') return inputs.lastUpdatedAt || null;
+  if (method === 'auction_price') return inputs.auctionDate || null;
+  if (method === 'appraisal_fx') return inputs.fxDate || null;
+
+  return inputs.markDate || inputs.lastUpdatedAt || inputs.auctionDate || inputs.fxDate || null;
+}
+
+function isPositionStale(position) {
+  if (!position || typeof position !== 'object') return true;
+
+  if (typeof position.stale === 'boolean') {
+    return position.stale;
+  }
+
+  const markDate = toUtcDate(getMarkDate(position));
+  if (!markDate) return true;
+
+  const todayUtc = new Date();
+  const todayDate = new Date(Date.UTC(
+    todayUtc.getUTCFullYear(),
+    todayUtc.getUTCMonth(),
+    todayUtc.getUTCDate(),
+  ));
+
+  const daysBetween = (todayDate.getTime() - markDate.getTime()) / DAY_MS;
+  return daysBetween > 3;
+}
+
+function calculateTradableNav(positions) {
+  return (positions || []).reduce((sum, position) => {
+    const navUsd = toFiniteNumber(position?.navUsd);
+    if (navUsd === null || isPositionStale(position)) return sum;
+    return sum + navUsd;
+  }, 0);
 }
 
 function formatSigned(value) {
@@ -87,12 +170,22 @@ function kpi(label, value, note) {
 
 function renderKpis(report) {
   clear(kpisNode);
+
+  const positions = Array.isArray(report?.positions) ? report.positions : [];
+  const portfolioNav = toFiniteNumber(report.totalNavUsd) ?? 0;
+  const tradableNavUsd = calculateTradableNav(positions);
+  const staleCount = positions.filter((position) => isPositionStale(position)).length;
+  const freshCount = positions.length - staleCount;
+  const staleSummary = staleCount > 0 ? `${freshCount} fresh • ${staleCount} stale` : 'All fresh';
+
   const fxDate = report.markets.fx?.date || 'n/a';
   const treasuryDate = report.markets.treasuries?.recordDate || 'n/a';
-  const classCount = new Set(report.positions.map((position) => position.classLabel)).size;
+  const classCount = new Set(positions.map((position) => position.classLabel)).size;
+
   kpisNode.append(
-    kpi('Portfolio NAV', usd.format(report.totalNavUsd), report.baseCurrency),
-    kpi('Positions', String(report.positionCount), `${classCount} asset classes`),
+    kpi('Portfolio NAV', usd.format(portfolioNav), report.baseCurrency),
+    kpi('Tradable NAV', usd.format(tradableNavUsd), staleSummary),
+    kpi('Positions', String(report.positionCount ?? positions.length), `${classCount} asset classes`),
     kpi('FX date', fxDate, 'ECB via Frankfurter'),
     kpi('Treasury date', treasuryDate, 'Average interest rates'),
   );
@@ -112,13 +205,23 @@ function movement(position) {
 function renderPositions(report) {
   clear(positionsNode);
   for (const position of report.positions) {
+    const stale = isPositionStale(position);
     const move = movement(position);
     const path = [];
     if ((position.series || []).filter((point) => Number.isFinite(point.navUsd)).length >= 2) {
       path.push(sparkline(position.series));
     }
-    path.push(el('div', tone(move?.value), [move ? `${formatSigned(move.value)} ${move.label}` : '—']));
+
+    const movementCell = el('div', tone(move?.value), [
+      move ? `${formatSigned(move.value)} ${move.label}` : '—',
+    ]);
+    if (stale) {
+      movementCell.append(el('span', 'stale-pill', ['Stale']));
+    }
+
     const row = document.createElement('tr');
+    row.classList.toggle('stale-row', stale);
+    const moveCell = el('td', '', [...path, movementCell]);
     row.append(
       el('th', '', [
         el('div', 'asset-name', [position.name]),
@@ -126,7 +229,7 @@ function renderPositions(report) {
       ]),
       el('td', '', [position.classLabel]),
       el('td', 'basis', [position.summary]),
-      el('td', '', path),
+      moveCell,
       el('td', 'num nav', [usd.format(position.navUsd)]),
     );
     row.querySelector('th').setAttribute('scope', 'row');
@@ -221,19 +324,28 @@ function render(report) {
 }
 
 async function loadValuation() {
-  refreshButton.disabled = true;
+  if (refreshInFlight) return;
+
+  refreshInFlight = true;
+  refreshButton.setAttribute('aria-busy', 'true');
   statusNode.classList.remove('error');
   statusNode.textContent = 'Pulling ECB, Treasury, and CoinGecko marks.';
+
   try {
     const response = await fetch('/api/valuation');
     const body = await response.json();
-    if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed (${response.status})`);
+    }
+
     render(body);
   } catch (error) {
     statusNode.classList.add('error');
-    statusNode.textContent = error.message;
+    statusNode.textContent = error instanceof Error ? error.message : 'Unable to load valuation.';
   } finally {
-    refreshButton.disabled = false;
+    refreshInFlight = false;
+    refreshButton.setAttribute('aria-busy', 'false');
   }
 }
 
